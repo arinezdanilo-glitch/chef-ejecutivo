@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
@@ -26,6 +27,9 @@ const armar = b => ({
   imagen: String(b.imagen || '').trim(),      // URL de la foto
   disponible: b.disponible !== false
 });
+
+// Panel del administrador (página aparte, sin enlaces desde el menú)
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 
 app.post('/api/login', soloAdmin, (req, res) => res.json({ ok: true }));
 
@@ -59,7 +63,7 @@ app.patch('/api/platos/:id/eliminar', soloAdmin, wrap(async (req, res) => {
 }));
 
 // CONSULTA AVANZADA: agregación con $match, $group y $lookup (une platos con categorias)
-app.get('/api/estadisticas', wrap(async (req, res) =>
+app.get('/api/estadisticas', soloAdmin, wrap(async (req, res) =>
   res.json(await db.collection('platos').aggregate([
     { $match: { activo: true } },
     { $group: { _id: '$categoriaId', total: { $sum: 1 }, precioPromedio: { $avg: '$precio' }, precioMax: { $max: '$precio' } } },
@@ -113,6 +117,7 @@ async function iniciar() {
       d('Postre de Chocolate', 'Delicioso pastel de chocolate.', 25, 'Postres'),
       d('Jugo Natural', 'Jugo de naranja natural.', 12, 'Bebidas')]);
   }
-  app.listen(3000, () => console.log('Abre http://localhost:3000'));
+  const PUERTO = process.env.PORT || 3000;
+  app.listen(PUERTO, () => console.log('Servidor listo en el puerto ' + PUERTO + ' -> http://localhost:' + PUERTO));
 }
 iniciar().catch(e => console.error('Error de conexión:', e.message));

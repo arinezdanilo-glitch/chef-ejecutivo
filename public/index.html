@@ -3,12 +3,13 @@
 <title>Chef Ejecutivo - Menú</title>
 <style>
 :root{--crema:#fbf6ef;--beige:#efe2d0;--marron:#4a2c1d;--marron2:#6b4226;--dorado:#c8923a}
+[hidden]{display:none!important}
 *{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:var(--crema);color:var(--marron)}
 header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:14px 24px;background:#fff}
 .logo{font:italic bold 1.8rem Georgia,serif;line-height:1}.logo small{display:block;font:italic .75rem Georgia,serif;color:var(--dorado);margin-top:4px}
 nav{display:flex;gap:8px;flex-wrap:wrap}
-.tab,.btn{border:0;border-radius:22px;padding:8px 20px;font:600 .95rem "Segoe UI",sans-serif;cursor:pointer;background:var(--beige);color:var(--marron)}
-.tab.on,.btn.fuerte{background:var(--marron);color:#fff}
+.tab{border:0;border-radius:22px;padding:8px 20px;font:600 .95rem "Segoe UI",sans-serif;cursor:pointer;background:var(--beige);color:var(--marron)}
+.tab.on{background:var(--marron);color:#fff}
 .hero{background:linear-gradient(120deg,var(--beige),#f6ebdc);padding:40px 24px;border-bottom:1px solid var(--beige)}
 .hero h1{margin:0;font:bold 2.4rem Georgia,serif}.hero p{margin:6px 0 0;font-size:1.1rem}.hero hr{width:60px;border:0;border-top:3px solid var(--dorado);margin:14px 0 0;text-align:left}
 main{max-width:1100px;margin:auto;padding:24px 16px}
@@ -21,64 +22,29 @@ main{max-width:1100px;margin:auto;padding:24px 16px}
 .fila{display:flex;justify-content:space-between;align-items:center}.precio{font-weight:700;font-size:1.15rem}
 .badge{background:var(--marron);color:#fff;font-size:.7rem;border-radius:10px;padding:3px 8px}
 .agotado .foto,.agotado h3{opacity:.55}
-.acciones{display:flex;gap:6px;margin-top:6px}.acciones button{flex:1;font-size:.75rem;padding:6px;border-radius:8px;border:1px solid var(--marron2);background:#fff;color:var(--marron);cursor:pointer}
-#admin{margin-top:32px;display:grid;gap:24px;grid-template-columns:minmax(0,1fr)}
-.panel{background:#fff;border-radius:16px;box-shadow:0 4px 14px rgba(74,44,29,.12);padding:18px}
-.panel h2{margin:0 0 12px;font:bold 1.3rem Georgia,serif}
-form{display:grid;gap:10px}input,select,textarea{padding:10px;font:inherit;border:1px solid #d9c7b0;border-radius:8px;background:var(--crema);color:var(--marron)}
-table{width:100%;border-collapse:collapse;font-size:.9rem}td,th{padding:8px;border-bottom:1px solid var(--beige);text-align:left}
 footer{background:var(--marron);color:#f6ebdc;text-align:center;padding:18px;font:italic 1.2rem Georgia,serif;margin-top:32px}
-@media(min-width:800px){#admin{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.grid{grid-template-columns:1fr}.card{flex-direction:row}.foto{width:120px;height:auto;min-height:120px;flex-shrink:0}.hero h1{font-size:1.8rem}}
 </style></head><body>
 <header>
  <div class="logo">Chef Ejecutivo<small>Comida que se disfruta</small></div>
  <nav id="tabs"></nav>
- <button class="btn fuerte" id="btnAdmin" onclick="entrar()">Administrar</button>
 </header>
 <section class="hero"><h1>Nuestro Menú</h1><p>Sabores únicos en cada plato</p><hr></section>
-<main>
- <div class="grid" id="grid"></div>
- <div id="admin" hidden>
-  <div class="panel"><h2 id="titulo">Agregar plato</h2>
-   <form id="f" onsubmit="guardar(event)">
-    <input type="hidden" id="id">
-    <input id="nombre" placeholder="Nombre del plato" required minlength="2">
-    <textarea id="descripcion" rows="2" placeholder="Descripción"></textarea>
-    <input id="precio" type="number" step="0.5" min="0" placeholder="Precio (Bs.)" required>
-    <select id="categoria"></select>
-    <input id="imagen" placeholder="Enlace (URL) de la foto">
-    <label><input type="checkbox" id="disponible" checked> Disponible</label>
-    <button class="btn fuerte" id="btn">Guardar plato</button>
-    <button type="button" class="btn" onclick="limpiar()">Cancelar</button>
-   </form></div>
-  <div class="panel"><h2>Resumen por categoría</h2>
-   <table><thead><tr><th>Categoría</th><th>Platos</th><th>Prom.</th><th>Máx.</th></tr></thead><tbody id="stats"></tbody></table>
-   <p style="font-size:.8rem">Consulta de agregación en MongoDB ($group + $lookup).</p></div>
- </div>
-</main>
+<main><div class="grid" id="grid"></div></main>
 <footer>¡Buen provecho!</footer>
 <script>
+// Página del CLIENTE: solo lee el menú. No tiene formularios ni botones de edición.
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-let cats = [], platos = [], tab = null, clave = null;
-
-// Función que se comunica con el servidor (envía la clave si es administrador)
-async function api(url, metodo = 'GET', cuerpo) {
-  const r = await fetch(url, { method: metodo, headers: { 'Content-Type': 'application/json', 'x-clave': clave || '' },
-    body: cuerpo ? JSON.stringify(cuerpo) : undefined });
-  const datos = await r.json();
-  if (!r.ok) throw new Error(datos.error || 'Error');
-  return datos;
-}
+let cats = [], platos = [], tab = null;
 
 async function cargar() {
   try {
-    cats = await api('/api/categorias'); platos = await api('/api/platos');
+    const [c, p] = await Promise.all([fetch('/api/categorias'), fetch('/api/platos')]);
+    cats = await c.json(); platos = await p.json();
     if (!tab && cats.length) tab = cats[0]._id;
-    $('categoria').innerHTML = cats.map(c => `<option value="${c._id}">${esc(c.nombre)}</option>`).join('');
-    dibujar(); if (clave) estadisticas();
-  } catch (e) { $('grid').innerHTML = '<p>No se pudo conectar con el servidor: ' + esc(e.message) + '</p>'; }
+    dibujar();
+  } catch (e) { $('grid').innerHTML = '<p>No se pudo cargar el menú. Intenta de nuevo en unos segundos.</p>'; }
 }
 
 function dibujar() {
@@ -89,54 +55,7 @@ function dibujar() {
     <div class="foto">🍽${p.imagen ? `<img src="${esc(p.imagen)}" alt="" onerror="this.remove()">` : ''}</div>
     <div class="cuerpo"><h3>${esc(p.nombre)}</h3><p>${esc(p.descripcion)}</p>
      <div class="fila"><span class="precio">Bs. ${p.precio}</span>${p.disponible ? '' : '<span class="badge">Agotado</span>'}</div>
-     ${clave ? `<div class="acciones"><button onclick="editar('${p._id}')">Editar</button>
-      <button onclick="alternar('${p._id}')">${p.disponible ? 'Agotar' : 'Disponible'}</button>
-      <button onclick="eliminar('${p._id}')">Eliminar</button></div>` : ''}
     </div></article>`).join('') : '<p>No hay platos en esta categoría.</p>';
 }
-
-async function estadisticas() {
-  const s = await api('/api/estadisticas');
-  $('stats').innerHTML = s.map(x => `<tr><td>${esc(x.categoria)}</td><td>${x.total}</td><td>${x.precioPromedio}</td><td>${x.precioMax}</td></tr>`).join('');
-}
-
-async function entrar() {
-  if (clave) { clave = null; $('admin').hidden = true; $('btnAdmin').textContent = 'Administrar'; return dibujar(); }
-  const c = prompt('Contraseña de administrador:'); if (!c) return;
-  clave = c;
-  try { await api('/api/login', 'POST'); $('admin').hidden = false; $('btnAdmin').textContent = 'Salir'; estadisticas(); dibujar(); }
-  catch { clave = null; alert('Contraseña incorrecta'); }
-}
-
-function limpiar() { $('f').reset(); $('id').value = ''; $('titulo').textContent = 'Agregar plato'; $('btn').textContent = 'Guardar plato'; }
-
-async function guardar(e) {
-  e.preventDefault();
-  const d = { nombre: $('nombre').value, descripcion: $('descripcion').value, precio: $('precio').value,
-    categoriaId: $('categoria').value, imagen: $('imagen').value, disponible: $('disponible').checked };
-  try {
-    if ($('id').value) await api('/api/platos/' + $('id').value, 'PUT', d);   // ACTUALIZAR
-    else await api('/api/platos', 'POST', d);                                  // CREAR
-    tab = d.categoriaId; limpiar(); cargar();
-  } catch (err) { alert('No se pudo guardar: ' + err.message); }
-}
-
-function editar(id) {
-  const p = platos.find(x => x._id === id);
-  $('id').value = id; $('nombre').value = p.nombre; $('descripcion').value = p.descripcion; $('precio').value = p.precio;
-  $('categoria').value = p.categoriaId; $('imagen').value = p.imagen; $('disponible').checked = p.disponible;
-  $('titulo').textContent = 'Editar plato'; $('btn').textContent = 'Guardar cambios'; $('f').scrollIntoView({ behavior: 'smooth' });
-}
-
-async function alternar(id) {
-  const p = platos.find(x => x._id === id);
-  await api('/api/platos/' + id, 'PUT', { ...p, disponible: !p.disponible }); cargar();
-}
-
-async function eliminar(id) {
-  if (!confirm('¿Eliminar este plato?')) return;           // confirmación antes de eliminar
-  await api('/api/platos/' + id + '/eliminar', 'PATCH'); cargar();
-}
-
 cargar();
 </script></body></html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Administración - Chef Ejecutivo</title>
+<style>
+:root{--crema:#fbf6ef;--beige:#efe2d0;--marron:#4a2c1d;--marron2:#6b4226;--dorado:#c8923a}
+[hidden]{display:none!important}
+*{box-sizing:border-box}body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:var(--crema);color:var(--marron)}
+header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:14px 24px;background:var(--marron);color:#fff}
+.logo{font:italic bold 1.6rem Georgia,serif;line-height:1}.logo small{display:block;font:.75rem "Segoe UI",sans-serif;color:#e8c98f;margin-top:4px;letter-spacing:1px}
+.btn{border:0;border-radius:22px;padding:8px 18px;font:600 .9rem "Segoe UI",sans-serif;cursor:pointer;background:var(--beige);color:var(--marron);text-decoration:none;display:inline-block}
+.btn.fuerte{background:var(--marron);color:#fff}header .btn.fuerte{background:var(--dorado)}
+main{max-width:1100px;margin:auto;padding:20px 16px}
+.panel{background:#fff;border-radius:16px;box-shadow:0 4px 14px rgba(74,44,29,.12);padding:18px}
+.panel h2{margin:0 0 12px;font:bold 1.25rem Georgia,serif}
+.centrado{max-width:380px;margin:60px auto}
+.dos{display:grid;gap:20px;grid-template-columns:minmax(0,1fr);margin-bottom:20px}@media(min-width:800px){.dos{grid-template-columns:1fr 1fr}}
+form{display:grid;gap:10px}input,select,textarea{padding:10px;font:inherit;border:1px solid #d9c7b0;border-radius:8px;background:var(--crema);color:var(--marron)}
+.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:560px}td,th{padding:8px;border-bottom:1px solid var(--beige);text-align:left;vertical-align:middle}
+.mini{position:relative;width:48px;height:48px;border-radius:8px;background:var(--beige);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.mini img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.acc{white-space:nowrap}.acc button{font-size:.75rem;padding:5px 8px;border-radius:8px;border:1px solid var(--marron2);background:#fff;color:var(--marron);cursor:pointer}
+.ag{color:#a33;font-weight:600}#error{color:#a33;margin:6px 0 0}
+</style></head><body>
+<header>
+ <div class="logo">Chef Ejecutivo<small>PANEL DE ADMINISTRACIÓN</small></div>
+ <div id="barra" hidden><a class="btn" href="/" target="_blank">Ver menú</a> <button class="btn fuerte" onclick="salir()">Cerrar sesión</button></div>
+</header>
+<main>
+ <section class="panel centrado" id="login">
+  <h2>Acceso de administrador</h2>
+  <form onsubmit="entrar(event)">
+   <input type="password" id="clave" placeholder="Contraseña" required>
+   <button class="btn fuerte">Entrar</button>
+  </form><p id="error"></p>
+ </section>
+
+ <div id="panel" hidden>
+  <div class="dos">
+   <div class="panel"><h2 id="titulo">Agregar plato</h2>
+    <form id="f" onsubmit="guardar(event)">
+     <input type="hidden" id="id">
+     <input id="nombre" placeholder="Nombre del plato" required minlength="2">
+     <textarea id="descripcion" rows="2" placeholder="Descripción"></textarea>
+     <input id="precio" type="number" step="0.5" min="0" placeholder="Precio (Bs.)" required>
+     <select id="categoria"></select>
+     <input id="imagen" placeholder="Enlace (URL) de la foto">
+     <label><input type="checkbox" id="disponible" checked> Disponible</label>
+     <button class="btn fuerte" id="btn">Guardar plato</button>
+     <button type="button" class="btn" onclick="limpiar()">Cancelar</button>
+    </form></div>
+   <div class="panel"><h2>Resumen por categoría</h2>
+    <table style="min-width:0"><thead><tr><th>Categoría</th><th>Platos</th><th>Prom.</th><th>Máx.</th></tr></thead><tbody id="stats"></tbody></table>
+    <p style="font-size:.8rem">Consulta de agregación en MongoDB ($group + $lookup).</p></div>
+  </div>
+  <div class="panel"><h2>Todos los platos</h2>
+   <div class="scroll"><table><thead><tr><th></th><th>Plato</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="filas"></tbody></table></div>
+  </div>
+ </div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let clave = null, cats = [], platos = [];
+try { clave = sessionStorage.getItem('clave'); } catch (e) {}
+
+// Todas las llamadas al servidor llevan la clave del administrador
+async function api(url, metodo = 'GET', cuerpo) {
+  const r = await fetch(url, { method: metodo, headers: { 'Content-Type': 'application/json', 'x-clave': clave || '' },
+    body: cuerpo ? JSON.stringify(cuerpo) : undefined });
+  const datos = await r.json();
+  if (!r.ok) throw new Error(datos.error || 'Error');
+  return datos;
+}
+
+async function entrar(e) {
+  e.preventDefault(); clave = $('clave').value;
+  try { await api('/api/login', 'POST'); try { sessionStorage.setItem('clave', clave); } catch (x) {} mostrar(); }
+  catch (x) { clave = null; $('error').textContent = 'Contraseña incorrecta'; }
+}
+function salir() { try { sessionStorage.removeItem('clave'); } catch (x) {} location.reload(); }
+async function mostrar() { $('login').hidden = true; $('panel').hidden = false; $('barra').hidden = false; await cargar(); }
+
+async function cargar() {
+  cats = await api('/api/categorias'); platos = await api('/api/platos');
+  $('categoria').innerHTML = cats.map(c => `<option value="${c._id}">${esc(c.nombre)}</option>`).join('');
+  const nombreCat = id => (cats.find(c => c._id === id) || {}).nombre || '';
+  $('filas').innerHTML = platos.map(p => `<tr>
+   <td><div class="mini">🍽${p.imagen ? `<img src="${esc(p.imagen)}" alt="" onerror="this.remove()">` : ''}</div></td>
+   <td><b>${esc(p.nombre)}</b></td><td>${esc(nombreCat(p.categoriaId))}</td><td>Bs. ${p.precio}</td>
+   <td>${p.disponible ? 'Disponible' : '<span class="ag">Agotado</span>'}</td>
+   <td class="acc"><button onclick="editar('${p._id}')">Editar</button>
+    <button onclick="alternar('${p._id}')">${p.disponible ? 'Agotar' : 'Disponible'}</button>
+    <button onclick="eliminar('${p._id}')">Eliminar</button></td></tr>`).join('');
+  const s = await api('/api/estadisticas');
+  $('stats').innerHTML = s.map(x => `<tr><td>${esc(x.categoria)}</td><td>${x.total}</td><td>${x.precioPromedio}</td><td>${x.precioMax}</td></tr>`).join('');
+}
+
+async function ejecutar(accion) { try { await accion(); await cargar(); } catch (e) { alert('Error: ' + e.message); } }
+
+function limpiar() { $('f').reset(); $('id').value = ''; $('titulo').textContent = 'Agregar plato'; $('btn').textContent = 'Guardar plato'; }
+
+function guardar(e) {
+  e.preventDefault();
+  const d = { nombre: $('nombre').value, descripcion: $('descripcion').value, precio: $('precio').value,
+    categoriaId: $('categoria').value, imagen: $('imagen').value, disponible: $('disponible').checked };
+  ejecutar(async () => {
+    if ($('id').value) await api('/api/platos/' + $('id').value, 'PUT', d);   // ACTUALIZAR
+    else await api('/api/platos', 'POST', d);                                  // CREAR
+    limpiar();
+  });
+}
+
+function editar(id) {
+  const p = platos.find(x => x._id === id);
+  $('id').value = id; $('nombre').value = p.nombre; $('descripcion').value = p.descripcion; $('precio').value = p.precio;
+  $('categoria').value = p.categoriaId; $('imagen').value = p.imagen; $('disponible').checked = p.disponible;
+  $('titulo').textContent = 'Editar plato'; $('btn').textContent = 'Guardar cambios'; window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function alternar(id) {
+  const p = platos.find(x => x._id === id);
+  ejecutar(() => api('/api/platos/' + id, 'PUT', { ...p, disponible: !p.disponible }));
+}
+
+function eliminar(id) {
+  if (!confirm('¿Eliminar este plato?')) return;                                // confirmación
+  ejecutar(() => api('/api/platos/' + id + '/eliminar', 'PATCH'));              // borrado lógico
+}
+
+if (clave) api('/api/login', 'POST').then(mostrar).catch(() => { clave = null; });
+</script></body></html>
