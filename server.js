@@ -29,7 +29,7 @@ const armar = b => ({
   categoriaId: new ObjectId(b.categoriaId),   // referencia a categorias._id
   imagen: String(b.imagen || '').trim(),      // URL de la foto
   disponible: b.disponible !== false,
-  opciones: lista(b.opciones),                // especificaciones que el cliente puede elegir (ej.: sin cebolla)
+  ...(b.opciones !== undefined ? { opciones: lista(b.opciones) } : {}),   // opciones del plato (se editan en Atlas); si no vienen, no se tocan
   destacado: b.destacado === true            // banner de "plato destacado" (máximo 3)
 });
 
@@ -104,12 +104,11 @@ app.post('/api/pedidos', limitar, wrap(async (req, res) => {
   if (!plato) return res.status(400).json({ error: 'El plato no está disponible' });
   const mesa = String(b.mesa || '').trim().slice(0, 40);
   if (!mesa) return res.status(400).json({ error: 'Falta la mesa o el nombre' });
-  const permitidas = plato.opciones || [];
   const doc = {
     platoId: plato._id,                         // referencia a platos._id
     platoNombre: plato.nombre,                  // copia del nombre, por si el plato cambia después
     mesa,
-    especificaciones: lista(b.especificaciones).filter(e => permitidas.includes(e)).slice(0, 15),  // solo opciones que el plato ofrece
+    especificaciones: lista(b.especificaciones).map(e => e.slice(0, 80)).slice(0, 15),   // máximo 15 textos de 80 caracteres
     nota: String(b.nota || '').trim().slice(0, 200),
     estado: 'pendiente', activo: true, fechaCreacion: new Date()
   };

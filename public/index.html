@@ -98,11 +98,15 @@ function dibujar() {
    </article>`).join('') : '<p>No hay platos en esta categoría.</p>';
 }
 
+// Opciones sugeridas si el plato no tiene las suyas (campo "opciones" en Atlas)
+const opcionesBase = cat => cat === 'Bebidas' ? ['Sin hielo', 'Poco azúcar'] : cat === 'Postres' ? ['Poco azúcar', 'Sin crema']
+  : ['Sin cebolla', 'Sin tomate', 'Sin picante', 'Carne bien cocida', 'Carne término medio', 'Carne semi cruda'];
+
 // Ficha del plato: descripción, especificaciones y envío del pedido (se guarda en Atlas)
 function abrir(id) {
   const p = platos.find(x => x._id === id); if (!p) return;
   const cat = (cats.find(c => c._id === p.categoriaId) || {}).nombre || '';
-  const ops = p.opciones || [];
+  const ops = (p.opciones && p.opciones.length) ? p.opciones : opcionesBase(cat);
   $('ficha').innerHTML = `<button class="cerrar" onclick="cerrar()" aria-label="Cerrar">×</button>${foto(p, 'foto')}
    <div class="mc"><div class="etq2">${esc(cat)}</div><h2 id="mTitulo">${esc(p.nombre)}</h2>
     <div class="precio">Bs. ${p.precio}${p.disponible ? '' : ' · Agotado'}</div>
