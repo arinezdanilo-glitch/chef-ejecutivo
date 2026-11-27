@@ -41,16 +41,59 @@ textarea,#mesa{padding:10px;font:inherit;border:1px solid #d9c7b0;border-radius:
 .resumen{background:var(--beige);border-radius:10px;padding:10px 12px;font-size:.9rem}
 .copiar:disabled{opacity:.5;cursor:default}#msg{font-weight:600;min-height:1.2em}
 .copiar{background:var(--marron);color:#fff;border:0;border-radius:20px;padding:10px 18px;font-weight:600;cursor:pointer;align-self:flex-start}
+a.logo{color:inherit;text-decoration:none}
+body.portada header,body.portada footer{display:none}
+.bienv{min-height:100vh;background:var(--marron);display:flex;align-items:center;justify-content:center;padding:24px 14px}
+.portada-card{position:relative;width:100%;max-width:470px;padding:48px 34px;color:var(--marron2);border-radius:6px;box-shadow:0 10px 40px rgba(0,0,0,.45);
+ background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 .42 0 0 0 0 .26 0 0 0 0 .13 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+ radial-gradient(ellipse at center,#fbf3e4 0%,#f3e3c8 62%,#e6cfa8 100%)}
+.esq{position:absolute;width:58px;height:58px;color:var(--dorado)}
+.esq.a{top:8px;left:8px}.esq.b{top:8px;right:8px;transform:scaleX(-1)}.esq.c{bottom:8px;left:8px;transform:scaleY(-1)}.esq.d{bottom:8px;right:8px;transform:scale(-1,-1)}
+.marco{position:relative;padding:26px 18px 20px;border:2px solid var(--marron2);border-radius:22px;text-align:center;box-shadow:inset 0 0 0 6px transparent,inset 0 0 0 7px rgba(200,146,58,.65)}
+.emblema{width:74px;height:74px;color:var(--marron);margin-bottom:6px}
+.peq{font:600 .72rem "Segoe UI",sans-serif;letter-spacing:4px;color:#8a5a14}
+.marco h1{margin:6px 0 2px;font:bold 2.3rem/1.05 Georgia,serif;color:var(--marron)}
+.lema{font:italic 1rem Georgia,serif;color:#8a5a14}
+.sep{display:block;width:160px;height:16px;color:var(--dorado);margin:12px auto}
+.msg{margin:0 0 10px;line-height:1.5;font-size:.95rem}.pasos{margin:0 0 14px;font-size:.82rem;line-height:1.5}
+.datos{margin:0 0 14px;font-size:.9rem;line-height:1.6}
+.botones{display:flex;flex-direction:column;gap:10px;align-items:center;margin-bottom:14px}
+.bt1{background:var(--marron);color:#fff;border:0;border-radius:26px;padding:13px 34px;font:700 1.05rem "Segoe UI",sans-serif;cursor:pointer}
+.bt2{background:transparent;color:var(--marron);border:2px solid var(--dorado);border-radius:26px;padding:10px 26px;font:700 .95rem "Segoe UI",sans-serif;cursor:pointer}
+.cloche{display:block;width:46px;height:26px;color:var(--marron2);margin:2px auto 6px}
 footer{background:var(--marron);color:#f6ebdc;text-align:center;padding:18px;font:italic 1.2rem Georgia,serif;margin-top:32px}
 @media(max-width:640px){.grid{grid-template-columns:1fr}.card{flex-direction:row}.foto{width:120px;flex-shrink:0;align-self:flex-start}.foto.vacia{height:120px}
-.ficha .foto{width:100%;align-self:auto}.hero h1{font-size:1.8rem}.banner{flex-direction:column;align-items:stretch}.banner .img{width:100%}}
-</style></head><body>
+.ficha .foto{width:100%;align-self:auto}.hero h1{font-size:1.8rem}.portada-card{padding:44px 26px}.marco h1{font-size:2rem}.banner{flex-direction:column;align-items:stretch}.banner .img{width:100%}}
+</style></head><body class="portada">
 <header>
- <div class="logo">Chef Ejecutivo<small>Comida que se disfruta</small></div>
- <nav id="tabs"></nav>
+ <a href="#" class="logo" onclick="inicio();return false">Chef Ejecutivo<small>Comida que se disfruta</small></a>
+ <nav id="tabs" hidden></nav>
 </header>
+<section class="bienv" id="bienvenida">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="esq" viewBox="0 0 60 60"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 56V10Q4 4 10 4h46"/><path d="M12 56V18Q12 12 18 12h38" opacity=".55"/><path d="M22 22q10 0 10 9t-9 9q-6 0-6-5t6-5"/><circle cx="46" cy="46" r="2.5" fill="currentColor"/></g></symbol></svg>
+<div class="portada-card">
+ <svg class="esq a" viewBox="0 0 60 60" aria-hidden="true"><use href="#esq"/></svg><svg class="esq b" viewBox="0 0 60 60" aria-hidden="true"><use href="#esq"/></svg>
+ <svg class="esq c" viewBox="0 0 60 60" aria-hidden="true"><use href="#esq"/></svg><svg class="esq d" viewBox="0 0 60 60" aria-hidden="true"><use href="#esq"/></svg>
+ <div class="marco">
+  <svg class="emblema" viewBox="0 0 80 80" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="40" cy="40" r="34"/>
+   <g transform="rotate(-35 40 40)"><path d="M35 18v9a5 5 0 0 0 10 0v-9M40 18v44"/></g>
+   <g transform="rotate(35 40 40)"><path d="M40 18c7 5 7 17 0 26M40 18v44"/></g></g></svg>
+  <div class="peq">BIENVENIDOS A</div>
+  <h1 id="bNombre"></h1>
+  <div class="lema">Comida que se disfruta</div>
+  <svg class="sep" viewBox="0 0 200 16" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 8h80M116 8h80"/><path d="M100 2l6 6-6 6-6-6z" fill="currentColor"/></g></svg>
+  <p class="msg">Gracias por visitarnos. Conoce nuestros platos, postres y bebidas, y envía tus preferencias a la cocina.</p>
+  <p class="pasos">Elige una categoría &middot; Toca <strong>Ver plato</strong> &middot; Envía tus especificaciones con tu mesa</p>
+  <div class="datos" id="bDatos"></div>
+  <div class="botones"><button class="bt1" onclick="entrar()">Ver el menú</button><button class="bt2" id="btnDest" onclick="entrar(true)" hidden>Platos destacados</button></div>
+  <svg class="cloche" viewBox="0 0 60 30" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 26h48M10 26a20 20 0 0 1 40 0"/><circle cx="30" cy="4" r="2.2" fill="currentColor"/></g></svg>
+  <div class="peq">PLATOS &middot; POSTRES &middot; BEBIDAS</div>
+ </div>
+</div></section>
+<div id="menu" hidden>
 <section class="hero"><h1>Nuestro Menú</h1><p>Sabores únicos en cada plato</p><hr></section>
 <main><div class="dest" id="destacados"></div><div class="grid" id="grid"></div></main>
+</div>
 <footer>¡Buen provecho!</footer>
 <div class="velo" id="modal" hidden onclick="if(event.target===this)cerrar()"><div class="ficha" id="ficha" role="dialog" aria-modal="true" aria-labelledby="mTitulo"></div></div>
 <script>
@@ -59,6 +102,20 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const DEST = 'destacados';           // "pestaña" especial de platos destacados
 let cats = [], platos = [], tab = null;
+
+// ====== DATOS DEL RESTAURANTE: edítalos aquí. Los que dejes vacíos no se muestran en la bienvenida ======
+const INFO = { nombre: 'Chef Ejecutivo', horario: '', direccion: '', telefono: '' };
+$('bNombre').textContent = INFO.nombre;
+$('bDatos').innerHTML = [['Horario', INFO.horario], ['Dirección', INFO.direccion], ['Teléfono', INFO.telefono]]
+  .filter(d => d[1]).map(d => `<div><b>${d[0]}:</b> ${esc(d[1])}</div>`).join('');
+
+// Pantalla de bienvenida (lo primero que ve el cliente al escanear el QR)
+function entrar(destacados) {
+  $('bienvenida').hidden = true; $('menu').hidden = false; $('tabs').hidden = false; document.body.classList.remove('portada');
+  if (destacados) tab = DEST;
+  dibujar(); window.scrollTo(0, 0);
+}
+function inicio() { $('bienvenida').hidden = false; $('menu').hidden = true; $('tabs').hidden = true; document.body.classList.add('portada'); window.scrollTo(0, 0); }
 
 // Foto completa; si no hay foto o el enlace falla, muestra un ícono
 const foto = (p, clase) => `<div class="${clase} ${p.imagen ? '' : 'vacia'}">${p.imagen
@@ -69,6 +126,7 @@ async function cargar() {
     const [c, p] = await Promise.all([fetch('/api/categorias'), fetch('/api/platos')]);
     cats = await c.json(); platos = await p.json();
     if (!tab && cats.length) tab = cats[0]._id;
+    $('btnDest').hidden = !platos.some(p => p.destacado && p.disponible);   // botón de destacados en la bienvenida
     dibujar();
   } catch (e) { $('grid').innerHTML = '<p>No se pudo cargar el menú. Intenta de nuevo en unos segundos.</p>'; }
 }
