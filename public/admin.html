@@ -45,6 +45,7 @@ form{display:grid;gap:10px}input,select,textarea{padding:10px;font:inherit;borde
      <input id="precio" type="number" step="0.5" min="0" placeholder="Precio (Bs.)" required>
      <select id="categoria"></select>
      <input id="imagen" placeholder="Enlace (URL) de la foto">
+     <input id="opciones" placeholder="Especificaciones (separadas por coma): Sin cebolla, Sin tomate, Carne bien cocida">
      <label><input type="checkbox" id="disponible" checked> Disponible</label>
      <label><input type="checkbox" id="destacado"> Plato destacado (banner en el menú, máximo 3)</label>
      <button class="btn fuerte" id="btn">Guardar plato</button>
@@ -54,6 +55,8 @@ form{display:grid;gap:10px}input,select,textarea{padding:10px;font:inherit;borde
     <table style="min-width:0"><thead><tr><th>Categoría</th><th>Platos</th><th>Prom.</th><th>Máx.</th></tr></thead><tbody id="stats"></tbody></table>
     <p style="font-size:.8rem">Consulta de agregación en MongoDB ($group + $lookup).</p></div>
   </div>
+  <div class="panel" style="margin-bottom:20px"><h2>Pedidos <small id="cuentaPed" style="font:600 .8rem 'Segoe UI',sans-serif"></small> <button type="button" class="btn" onclick="cargarPedidos()" style="font-size:.75rem;padding:5px 12px">Actualizar</button></h2>
+   <div class="scroll"><table><thead><tr><th>Hora</th><th>Mesa</th><th>Plato</th><th>Especificaciones</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="pedidos"></tbody></table></div></div>
   <div class="panel"><h2>Todos los platos <small id="cuentaDest" style="font:600 .8rem 'Segoe UI',sans-serif"></small></h2>
    <div class="scroll"><table><thead><tr><th></th><th>Plato</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="filas"></tbody></table></div>
   </div>
@@ -80,7 +83,7 @@ async function entrar(e) {
   catch (x) { clave = null; $('error').textContent = 'Contraseña incorrecta'; }
 }
 function salir() { try { sessionStorage.removeItem('clave'); } catch (x) {} location.reload(); }
-async function mostrar() { $('login').hidden = true; $('panel').hidden = false; $('barra').hidden = false; await cargar(); }
+async function mostrar() { $('login').hidden = true; $('panel').hidden = false; $('barra').hidden = false; await cargar(); await cargarPedidos(); }
 
 async function cargar() {
   cats = await api('/api/categorias'); platos = await api('/api/platos');
@@ -99,14 +102,27 @@ async function cargar() {
   $('stats').innerHTML = s.map(x => `<tr><td>${esc(x.categoria)}</td><td>${x.total}</td><td>${x.precioPromedio}</td><td>${x.precioMax}</td></tr>`).join('');
 }
 
-async function ejecutar(accion) { try { await accion(); await cargar(); } catch (e) { alert('Error: ' + e.message); } }
+async function cargarPedidos() {
+  const ps = await api('/api/pedidos');
+  $('cuentaPed').textContent = ' · Pendientes: ' + ps.filter(x => x.estado === 'pendiente').length;
+  $('pedidos').innerHTML = ps.length ? ps.map(x => `<tr>
+   <td>${new Date(x.fechaCreacion).toLocaleString('es-BO')}</td><td>${esc(x.mesa)}</td><td><b>${esc(x.platoNombre)}</b></td>
+   <td>${esc([...x.especificaciones, x.nota].filter(Boolean).join(', ')) || '—'}</td>
+   <td>${x.estado === 'pendiente' ? '<span class="ag">Pendiente</span>' : 'Atendido'}</td>
+   <td class="acc"><button onclick="estadoPedido('${x._id}','${x.estado === 'pendiente' ? 'atendido' : 'pendiente'}')">${x.estado === 'pendiente' ? 'Marcar atendido' : 'Reabrir'}</button>
+    <button onclick="archivarPedido('${x._id}')">Archivar</button></td></tr>`).join('') : '<tr><td colspan="6">Aún no hay pedidos.</td></tr>';
+}
+function estadoPedido(id, estado) { ejecutar(() => api('/api/pedidos/' + id + '/estado', 'PATCH', { estado })); }
+function archivarPedido(id) { if (confirm('¿Archivar este pedido?')) ejecutar(() => api('/api/pedidos/' + id + '/archivar', 'PATCH')); }   // borrado lógico
+
+async function ejecutar(accion) { try { await accion(); await cargar(); await cargarPedidos(); } catch (e) { alert('Error: ' + e.message); } }
 
 function limpiar() { $('f').reset(); $('id').value = ''; $('titulo').textContent = 'Agregar plato'; $('btn').textContent = 'Guardar plato'; }
 
 function guardar(e) {
   e.preventDefault();
   const d = { nombre: $('nombre').value, descripcion: $('descripcion').value, precio: $('precio').value,
-    categoriaId: $('categoria').value, imagen: $('imagen').value, disponible: $('disponible').checked, destacado: $('destacado').checked };
+    categoriaId: $('categoria').value, imagen: $('imagen').value, disponible: $('disponible').checked, destacado: $('destacado').checked, opciones: $('opciones').value };
   ejecutar(async () => {
     if ($('id').value) await api('/api/platos/' + $('id').value, 'PUT', d);   // ACTUALIZAR
     else await api('/api/platos', 'POST', d);                                  // CREAR
@@ -117,7 +133,7 @@ function guardar(e) {
 function editar(id) {
   const p = platos.find(x => x._id === id);
   $('id').value = id; $('nombre').value = p.nombre; $('descripcion').value = p.descripcion; $('precio').value = p.precio;
-  $('categoria').value = p.categoriaId; $('imagen').value = p.imagen; $('disponible').checked = p.disponible; $('destacado').checked = !!p.destacado;
+  $('categoria').value = p.categoriaId; $('imagen').value = p.imagen; $('disponible').checked = p.disponible; $('destacado').checked = !!p.destacado; $('opciones').value = (p.opciones || []).join(', ');
   $('titulo').textContent = 'Editar plato'; $('btn').textContent = 'Guardar cambios'; window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -136,5 +152,6 @@ function eliminar(id) {
   ejecutar(() => api('/api/platos/' + id + '/eliminar', 'PATCH'));              // borrado lógico
 }
 
+setInterval(() => { if (clave) cargarPedidos().catch(() => {}); }, 15000);   // revisa pedidos nuevos cada 15 segundos
 if (clave) api('/api/login', 'POST').then(mostrar).catch(() => { clave = null; });
 </script></body></html>

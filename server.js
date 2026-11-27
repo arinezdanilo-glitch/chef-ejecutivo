@@ -4,6 +4,7 @@ const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 
 const app = express();
+app.set('trust proxy', 1);   // necesario en Render para leer la IP real del cliente
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -19,6 +20,8 @@ const soloAdmin = (req, res, next) =>
     ? next() : res.status(401).json({ error: 'No autorizado' });
 
 // Convierte lo que llega del formulario en un documento de MongoDB
+const lista = t => (Array.isArray(t) ? t : String(t || '').split(',')).map(s => s.trim()).filter(Boolean);
+
 const armar = b => ({
   nombre: String(b.nombre).trim(),
   descripcion: String(b.descripcion || '').trim(),
@@ -26,6 +29,7 @@ const armar = b => ({
   categoriaId: new ObjectId(b.categoriaId),   // referencia a categorias._id
   imagen: String(b.imagen || '').trim(),      // URL de la foto
   disponible: b.disponible !== false,
+  opciones: lista(b.opciones),                // especificaciones que el cliente puede elegir (ej.: sin cebolla)
   destacado: b.destacado === true            // banner de "plato destacado" (máximo 3)
 });
 
@@ -37,6 +41,14 @@ async function validarDestacados(destacado, idActual) {
   if ((await db.collection('platos').countDocuments(filtro)) >= 3)
     throw new Error('Solo puede haber 3 platos destacados como máximo');
 }
+
+// Límite simple contra abuso: máximo 10 pedidos por minuto desde una misma IP
+const intentos = new Map();
+const limitar = (req, res, next) => {
+  const ahora = Date.now(), lista = (intentos.get(req.ip) || []).filter(t => ahora - t < 60000);
+  if (lista.length >= 10) return res.status(429).json({ error: 'Demasiados pedidos, espera un minuto' });
+  lista.push(ahora); intentos.set(req.ip, lista); next();
+};
 
 // Panel del administrador (página aparte, sin enlaces desde el menú)
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
@@ -85,6 +97,43 @@ app.get('/api/estadisticas', soloAdmin, wrap(async (req, res) =>
     { $sort: { categoria: 1 } }
   ]).toArray())));
 
+// ----- PEDIDOS: el cliente envía sus especificaciones y se guardan en Atlas -----
+app.post('/api/pedidos', limitar, wrap(async (req, res) => {
+  const b = req.body;
+  const plato = await db.collection('platos').findOne({ _id: new ObjectId(b.platoId), activo: true, disponible: true });
+  if (!plato) return res.status(400).json({ error: 'El plato no está disponible' });
+  const mesa = String(b.mesa || '').trim().slice(0, 40);
+  if (!mesa) return res.status(400).json({ error: 'Falta la mesa o el nombre' });
+  const permitidas = plato.opciones || [];
+  const doc = {
+    platoId: plato._id,                         // referencia a platos._id
+    platoNombre: plato.nombre,                  // copia del nombre, por si el plato cambia después
+    mesa,
+    especificaciones: lista(b.especificaciones).filter(e => permitidas.includes(e)).slice(0, 15),  // solo opciones que el plato ofrece
+    nota: String(b.nota || '').trim().slice(0, 200),
+    estado: 'pendiente', activo: true, fechaCreacion: new Date()
+  };
+  const r = await db.collection('pedidos').insertOne(doc);
+  res.status(201).json({ ok: true, id: r.insertedId });
+}));
+
+app.get('/api/pedidos', soloAdmin, wrap(async (req, res) =>
+  res.json(await db.collection('pedidos').find({ activo: true }).sort({ fechaCreacion: -1 }).limit(100).toArray())));
+
+app.patch('/api/pedidos/:id/estado', soloAdmin, wrap(async (req, res) => {
+  if (!['pendiente', 'atendido'].includes(req.body.estado)) return res.status(400).json({ error: 'Estado no válido' });
+  await db.collection('pedidos').updateOne({ _id: new ObjectId(req.params.id) },
+    { $set: { estado: req.body.estado, fechaActualizacion: new Date() } });
+  res.json({ ok: true });
+}));
+
+// Archivar = borrado lógico (activo: false)
+app.patch('/api/pedidos/:id/archivar', soloAdmin, wrap(async (req, res) => {
+  await db.collection('pedidos').updateOne({ _id: new ObjectId(req.params.id) },
+    { $set: { activo: false, fechaActualizacion: new Date() } });
+  res.json({ ok: true });
+}));
+
 async function iniciar() {
   await client.connect();
   console.log('Conectado a MongoDB Atlas');
@@ -105,11 +154,24 @@ async function iniciar() {
         imagen: { bsonType: 'string' },
         disponible: { bsonType: 'bool' },
         activo: { bsonType: 'bool' },
-        destacado: { bsonType: 'bool' }
+        destacado: { bsonType: 'bool' },
+        opciones: { bsonType: 'array', items: { bsonType: 'string' } }
       } } } });
   }
   await db.collection('categorias').createIndex({ nombre: 1 }, { unique: true });
   await db.collection('platos').createIndex({ categoriaId: 1, activo: 1 });
+  if (!existentes.includes('pedidos')) {
+    await db.createCollection('pedidos', { validator: { $jsonSchema: {
+      bsonType: 'object',
+      required: ['platoId', 'mesa', 'estado', 'activo', 'fechaCreacion'],
+      properties: {
+        platoId: { bsonType: 'objectId' },
+        mesa: { bsonType: 'string' },
+        estado: { enum: ['pendiente', 'atendido'] },
+        activo: { bsonType: 'bool' }
+      } } } });
+  }
+  await db.collection('pedidos').createIndex({ activo: 1, fechaCreacion: -1 });
 
   // Datos iniciales (solo si las colecciones están vacías)
   if ((await db.collection('categorias').countDocuments()) === 0) {
