@@ -18,7 +18,7 @@ main{max-width:1100px;margin:auto;padding:20px 16px}
 form{display:grid;gap:10px}input,select,textarea{padding:10px;font:inherit;border:1px solid #d9c7b0;border-radius:8px;background:var(--crema);color:var(--marron)}
 .scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:560px}td,th{padding:8px;border-bottom:1px solid var(--beige);text-align:left;vertical-align:middle}
 .mini{position:relative;width:48px;height:48px;border-radius:8px;background:var(--beige);display:flex;align-items:center;justify-content:center;overflow:hidden}
-.mini img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mini img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 .acc{white-space:nowrap}.acc button{font-size:.75rem;padding:5px 8px;border-radius:8px;border:1px solid var(--marron2);background:#fff;color:var(--marron);cursor:pointer}
 .ag{color:#a33;font-weight:600}#error{color:#a33;margin:6px 0 0}
 </style></head><body>
@@ -46,6 +46,7 @@ form{display:grid;gap:10px}input,select,textarea{padding:10px;font:inherit;borde
      <select id="categoria"></select>
      <input id="imagen" placeholder="Enlace (URL) de la foto">
      <label><input type="checkbox" id="disponible" checked> Disponible</label>
+     <label><input type="checkbox" id="destacado"> Plato destacado (banner en el menú, máximo 3)</label>
      <button class="btn fuerte" id="btn">Guardar plato</button>
      <button type="button" class="btn" onclick="limpiar()">Cancelar</button>
     </form></div>
@@ -53,7 +54,7 @@ form{display:grid;gap:10px}input,select,textarea{padding:10px;font:inherit;borde
     <table style="min-width:0"><thead><tr><th>Categoría</th><th>Platos</th><th>Prom.</th><th>Máx.</th></tr></thead><tbody id="stats"></tbody></table>
     <p style="font-size:.8rem">Consulta de agregación en MongoDB ($group + $lookup).</p></div>
   </div>
-  <div class="panel"><h2>Todos los platos</h2>
+  <div class="panel"><h2>Todos los platos <small id="cuentaDest" style="font:600 .8rem 'Segoe UI',sans-serif"></small></h2>
    <div class="scroll"><table><thead><tr><th></th><th>Plato</th><th>Categoría</th><th>Precio</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="filas"></tbody></table></div>
   </div>
  </div>
@@ -88,10 +89,12 @@ async function cargar() {
   $('filas').innerHTML = platos.map(p => `<tr>
    <td><div class="mini">🍽${p.imagen ? `<img src="${esc(p.imagen)}" alt="" onerror="this.remove()">` : ''}</div></td>
    <td><b>${esc(p.nombre)}</b></td><td>${esc(nombreCat(p.categoriaId))}</td><td>Bs. ${p.precio}</td>
-   <td>${p.disponible ? 'Disponible' : '<span class="ag">Agotado</span>'}</td>
+   <td>${p.disponible ? 'Disponible' : '<span class="ag">Agotado</span>'}${p.destacado ? ' <b>★ Destacado</b>' : ''}</td>
    <td class="acc"><button onclick="editar('${p._id}')">Editar</button>
     <button onclick="alternar('${p._id}')">${p.disponible ? 'Agotar' : 'Disponible'}</button>
+    <button onclick="destacar('${p._id}')">${p.destacado ? 'Quitar destacado' : 'Destacar'}</button>
     <button onclick="eliminar('${p._id}')">Eliminar</button></td></tr>`).join('');
+  $('cuentaDest').textContent = ' · Destacados: ' + platos.filter(p => p.destacado).length + '/3';
   const s = await api('/api/estadisticas');
   $('stats').innerHTML = s.map(x => `<tr><td>${esc(x.categoria)}</td><td>${x.total}</td><td>${x.precioPromedio}</td><td>${x.precioMax}</td></tr>`).join('');
 }
@@ -103,7 +106,7 @@ function limpiar() { $('f').reset(); $('id').value = ''; $('titulo').textContent
 function guardar(e) {
   e.preventDefault();
   const d = { nombre: $('nombre').value, descripcion: $('descripcion').value, precio: $('precio').value,
-    categoriaId: $('categoria').value, imagen: $('imagen').value, disponible: $('disponible').checked };
+    categoriaId: $('categoria').value, imagen: $('imagen').value, disponible: $('disponible').checked, destacado: $('destacado').checked };
   ejecutar(async () => {
     if ($('id').value) await api('/api/platos/' + $('id').value, 'PUT', d);   // ACTUALIZAR
     else await api('/api/platos', 'POST', d);                                  // CREAR
@@ -114,13 +117,18 @@ function guardar(e) {
 function editar(id) {
   const p = platos.find(x => x._id === id);
   $('id').value = id; $('nombre').value = p.nombre; $('descripcion').value = p.descripcion; $('precio').value = p.precio;
-  $('categoria').value = p.categoriaId; $('imagen').value = p.imagen; $('disponible').checked = p.disponible;
+  $('categoria').value = p.categoriaId; $('imagen').value = p.imagen; $('disponible').checked = p.disponible; $('destacado').checked = !!p.destacado;
   $('titulo').textContent = 'Editar plato'; $('btn').textContent = 'Guardar cambios'; window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function alternar(id) {
   const p = platos.find(x => x._id === id);
   ejecutar(() => api('/api/platos/' + id, 'PUT', { ...p, disponible: !p.disponible }));
+}
+
+function destacar(id) {
+  const p = platos.find(x => x._id === id);
+  ejecutar(() => api('/api/platos/' + id, 'PUT', { ...p, destacado: !p.destacado }));   // el servidor limita a 3
 }
 
 function eliminar(id) {

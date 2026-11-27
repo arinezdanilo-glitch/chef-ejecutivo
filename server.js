@@ -25,8 +25,18 @@ const armar = b => ({
   precio: Number(b.precio),
   categoriaId: new ObjectId(b.categoriaId),   // referencia a categorias._id
   imagen: String(b.imagen || '').trim(),      // URL de la foto
-  disponible: b.disponible !== false
+  disponible: b.disponible !== false,
+  destacado: b.destacado === true            // banner de "plato destacado" (máximo 3)
 });
+
+// Regla de negocio: como máximo 3 platos activos pueden ser destacados
+async function validarDestacados(destacado, idActual) {
+  if (!destacado) return;
+  const filtro = { activo: true, destacado: true };
+  if (idActual) filtro._id = { $ne: new ObjectId(idActual) };
+  if ((await db.collection('platos').countDocuments(filtro)) >= 3)
+    throw new Error('Solo puede haber 3 platos destacados como máximo');
+}
 
 // Panel del administrador (página aparte, sin enlaces desde el menú)
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
@@ -41,6 +51,7 @@ app.get('/api/platos', wrap(async (req, res) =>
 
 // CREAR
 app.post('/api/platos', soloAdmin, wrap(async (req, res) => {
+  await validarDestacados(req.body.destacado === true);
   const doc = { ...armar(req.body), activo: true, fechaCreacion: new Date() };
   const r = await db.collection('platos').insertOne(doc);
   res.status(201).json({ ...doc, _id: r.insertedId });
@@ -48,6 +59,7 @@ app.post('/api/platos', soloAdmin, wrap(async (req, res) => {
 
 // ACTUALIZAR
 app.put('/api/platos/:id', soloAdmin, wrap(async (req, res) => {
+  await validarDestacados(req.body.destacado === true, req.params.id);
   await db.collection('platos').updateOne(
     { _id: new ObjectId(req.params.id) },
     { $set: { ...armar(req.body), fechaActualizacion: new Date() } });
@@ -92,7 +104,8 @@ async function iniciar() {
         categoriaId: { bsonType: 'objectId' },
         imagen: { bsonType: 'string' },
         disponible: { bsonType: 'bool' },
-        activo: { bsonType: 'bool' }
+        activo: { bsonType: 'bool' },
+        destacado: { bsonType: 'bool' }
       } } } });
   }
   await db.collection('categorias').createIndex({ nombre: 1 }, { unique: true });
