@@ -156,36 +156,19 @@ function dibujar() {
    </article>`).join('') : '<p>No hay platos en esta categoría.</p>';
 }
 
-// Opciones sugeridas si el plato no tiene las suyas (campo "opciones" en Atlas)
-const opcionesBase = cat => cat === 'Bebidas' ? ['Sin hielo', 'Poco azúcar'] : cat === 'Postres' ? ['Poco azúcar', 'Sin crema']
-  : ['Sin cebolla', 'Sin tomate', 'Sin picante', 'Carne bien cocida', 'Carne término medio', 'Carne semi cruda'];
-
 // Ficha del plato: descripción, especificaciones y envío del pedido (se guarda en Atlas)
 function abrir(id) {
   const p = platos.find(x => x._id === id); if (!p) return;
   const cat = (cats.find(c => c._id === p.categoriaId) || {}).nombre || '';
-  const ops = (p.opciones && p.opciones.length) ? p.opciones : opcionesBase(cat);
   $('ficha').innerHTML = `<button class="cerrar" onclick="cerrar()" aria-label="Cerrar">×</button>${foto(p, 'foto')}
    <div class="mc"><div class="etq2">${esc(cat)}</div><h2 id="mTitulo">${esc(p.nombre)}</h2>
     <div class="precio">Bs. ${p.precio}${p.disponible ? '' : ' · Agotado'}</div>
     <p>${esc(p.descripcion) || 'Sin descripción.'}</p>
-    <h3>Especificaciones</h3>
-    ${ops.length ? `<div class="ops">${ops.map(o => `<label><input type="checkbox" value="${esc(o)}" onchange="resumen('${p._id}')"> ${esc(o)}</label>`).join('')}</div>` : ''}
-    <textarea id="nota" rows="2" maxlength="200" placeholder="Otra indicación (ej.: sin cebolla, carne bien cocida)" oninput="resumen('${p._id}')"></textarea>
+    <textarea id="nota" rows="2" maxlength="200" placeholder="Especificaciones (ej.: sin cebolla, carne bien cocida)" aria-label="Especificaciones"></textarea>
     <input id="mesa" maxlength="40" placeholder="Tu mesa o nombre (ej.: Mesa 5)" ${p.disponible ? '' : 'disabled'}>
-    <div class="resumen" id="resumen" hidden></div>
     <button class="copiar" id="btnEnviar" onclick="enviar('${p._id}')" ${p.disponible ? '' : 'disabled'}>Enviar pedido</button>
     <div id="msg" role="status"></div></div>`;
   $('modal').hidden = false; document.body.style.overflow = 'hidden'; $('ficha').scrollTop = 0;
-}
-
-function elegidas() { return [...document.querySelectorAll('#ficha .ops input:checked')].map(i => i.value); }
-
-function resumen(id) {
-  const p = platos.find(x => x._id === id);
-  const partes = [...elegidas(), ...($('nota').value.trim() ? [$('nota').value.trim()] : [])];
-  $('resumen').hidden = !partes.length;
-  $('resumen').textContent = partes.length ? 'Tu pedido: ' + p.nombre + ' — ' + partes.join(', ') : '';
 }
 
 async function enviar(id) {
@@ -193,7 +176,7 @@ async function enviar(id) {
   if (!mesa) { $('msg').textContent = 'Escribe tu mesa o nombre.'; return; }
   try {
     const r = await fetch('/api/pedidos', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platoId: id, mesa, especificaciones: elegidas(), nota: $('nota').value.trim() }) });
+      body: JSON.stringify({ platoId: id, mesa, nota: $('nota').value.trim() }) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error || 'Error');
     $('msg').textContent = 'Pedido enviado. ¡Gracias!'; $('btnEnviar').disabled = true;
